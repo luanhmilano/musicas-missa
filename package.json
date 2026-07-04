@@ -1,0 +1,20 @@
+{
+  "name": "musicas-missa",
+  "version": "1.0.0",
+  "description": "Gerador de documentos de músicas para Missa",
+  "license": "ISC",
+  "author": "",
+  "type": "commonjs",
+  "main": "index.js",
+  "packageManager": "npm@11.16.0",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build"
+  },
+  "devDependencies": {
+    "turbo": "^2.10.3"
+  }
+}
