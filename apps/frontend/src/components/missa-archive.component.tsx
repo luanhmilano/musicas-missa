@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../services/api';
 import type { Missa, MissaSongRef, Song } from '../types';
+import { ConfirmationModal } from './confirmation-modal.component';
+
+const MASSES_PER_PAGE = 2;
 
 const REPERTOIRE_FIELDS = [
   { key: 'entrada', label: 'ENTRADA' },
@@ -45,13 +48,96 @@ function toEditorState(mass: Missa): MassEditorState {
   };
 }
 
+function normalizeSongLabel(value: MissaSongRef | string | null | undefined, songsById: Map<string, Song>): string {
+  const songId = normalizeSongRef(value);
+
+  if (!songId) {
+    return 'Sem música';
+  }
+
+  const song = songsById.get(songId);
+
+  if (song) {
+    return `${song.titulo}${song.tom ? ` (${song.tom})` : ''}`;
+  }
+
+  if (value && typeof value !== 'string' && value.titulo) {
+    return `${value.titulo}${value.tom ? ` (${value.tom})` : ''}`;
+  }
+
+  return 'Música não encontrada';
+}
+
+function buildRepertoireSummary(mass: Missa, songsById: Map<string, Song>) {
+  return REPERTOIRE_FIELDS
+    .map(field => {
+      const songLabel = normalizeSongLabel(mass.repertorio?.[field.key], songsById);
+
+      return songLabel === 'Sem música'
+        ? null
+        : { key: field.key, label: field.label, songLabel };
+    })
+    .filter((item): item is { key: string; label: string; songLabel: string } => item !== null);
+}
+
+function normalizeText(value: string) {
+  return value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
 export function MassArchive() {
   const [songs, setSongs] = useState<Song[]>([]);
   const [missas, setMissas] = useState<Missa[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
   const [editingMass, setEditingMass] = useState<Missa | null>(null);
+  const [massToDelete, setMassToDelete] = useState<Missa | null>(null);
   const [formData, setFormData] = useState<MassEditorState>(EMPTY_EDITOR);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const selectedMassId = editingMass?._id ?? null;
+  const songsById = useMemo(() => new Map(songs.map(song => [song._id, song])), [songs]);
+  const normalizedSearchTerm = normalizeText(searchTerm.trim());
+
+  const filteredMissas = useMemo(() => {
+    if (!normalizedSearchTerm) {
+      return missas;
+    }
+
+    return missas.filter(mass => {
+      const repertoireSummary = buildRepertoireSummary(mass, songsById)
+        .map(item => `${item.label} ${item.songLabel}`)
+        .join(' ');
+      const searchable = [
+        mass.nome,
+        new Date(mass.data).toLocaleDateString('pt-BR'),
+        repertoireSummary
+      ].join(' ');
+
+      return normalizeText(searchable).includes(normalizedSearchTerm);
+    });
+  }, [missas, normalizedSearchTerm, songsById]);
+
+  const selectedMassPage = useMemo(() => {
+    if (!editingMass) {
+      return null;
+    }
+
+    const index = filteredMissas.findIndex(mass => mass._id === editingMass._id);
+
+    if (index < 0) {
+      return null;
+    }
+
+    return Math.floor(index / MASSES_PER_PAGE) + 1;
+  }, [editingMass, filteredMissas]);
+
+  const totalMassPages = Math.max(1, Math.ceil(filteredMissas.length / MASSES_PER_PAGE));
+  const currentMassPage = selectedMassPage ?? Math.min(currentPage, totalMassPages);
+  const pagedMissas = filteredMissas.slice((currentMassPage - 1) * MASSES_PER_PAGE, currentMassPage * MASSES_PER_PAGE);
 
   const title = useMemo(() => (
     editingMass ? 'Atualizar missa selecionada' : 'Cadastrar nova missa'
@@ -108,6 +194,36 @@ export function MassArchive() {
     setFormData(EMPTY_EDITOR);
   };
 
+  const closeDeleteModal = () => {
+    setMassToDelete(null);
+  };
+
+  const confirmDelete = async () => {
+    if (!massToDelete) {
+      return;
+    }
+
+    try {
+      await api.delete(`/missas/${massToDelete._id}`);
+      setLoading(true);
+      await loadData();
+      if (editingMass?._id === massToDelete._id) {
+        cancelEdit();
+      }
+      setMessage('Missa excluída com sucesso.');
+    } catch (error) {
+      console.error('[frontend][missa-archive] delete error', error);
+      setMessage('Erro ao excluir missa.');
+    } finally {
+      closeDeleteModal();
+    }
+  };
+
+  const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(event.target.value);
+    setCurrentPage(1);
+  };
+
   const updateRepertoire = (key: string, value: string) => {
     setFormData(prev => ({
       ...prev,
@@ -143,21 +259,10 @@ export function MassArchive() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('Deseja excluir esta missa?')) {
-      return;
-    }
+    const mass = missas.find(item => item._id === id);
 
-    try {
-      await api.delete(`/missas/${id}`);
-      setLoading(true);
-      await loadData();
-      if (editingMass?._id === id) {
-        cancelEdit();
-      }
-      setMessage('Missa excluída com sucesso.');
-    } catch (error) {
-      console.error('[frontend][missa-archive] delete error', error);
-      setMessage('Erro ao excluir missa.');
+    if (mass) {
+      setMassToDelete(mass);
     }
   };
 
@@ -250,17 +355,41 @@ export function MassArchive() {
           </form>
 
           <div className="archive-list">
-            <h3>Missas cadastradas</h3>
+            <div className="archive-list-header">
+              <h3>Missas cadastradas</h3>
+              <label className="archive-search">
+                <span>Buscar missa</span>
+                <input
+                  type="search"
+                  value={searchTerm}
+                  onChange={handleSearchChange}
+                  placeholder="Nome, data ou música"
+                />
+              </label>
+            </div>
             {loading ? (
               <p>Carregando missas...</p>
             ) : missas.length === 0 ? (
               <p>Nenhuma missa cadastrada ainda.</p>
+            ) : filteredMissas.length === 0 ? (
+              <p>Missa não encontrada.</p>
             ) : (
-              missas.map(mass => (
-                <article key={mass._id} className="archive-item">
-                  <div>
+              pagedMissas.map(mass => (
+                <article
+                  key={mass._id}
+                  className={`archive-item${selectedMassId === mass._id ? ' archive-item--selected' : ''}`}
+                >
+                  <div className="archive-item-content">
                     <strong>{mass.nome}</strong>
                     <p>{new Date(mass.data).toLocaleDateString('pt-BR')}</p>
+                    <ul className="archive-summary">
+                      {buildRepertoireSummary(mass, songsById).map(item => (
+                        <li key={item.key}>
+                          <span>{item.label}</span>
+                          <span>{item.songLabel}</span>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
                   <div className="archive-item-actions">
                     <button type="button" className="archive-secondary" onClick={() => startEdit(mass)}>
@@ -276,8 +405,43 @@ export function MassArchive() {
                 </article>
               ))
             )}
+
+            {filteredMissas.length > 0 && (
+              <div className="archive-pagination">
+                <button
+                  type="button"
+                  className="archive-secondary"
+                  onClick={() => setCurrentPage(page => Math.max(1, page - 1))}
+                  disabled={currentMassPage === 1}
+                >
+                  Anterior
+                </button>
+                <span>
+                  Página {currentMassPage} de {totalMassPages}
+                </span>
+                <button
+                  type="button"
+                  className="archive-secondary"
+                  onClick={() => setCurrentPage(page => Math.min(totalMassPages, page + 1))}
+                  disabled={currentMassPage === totalMassPages}
+                >
+                  Próxima
+                </button>
+              </div>
+            )}
           </div>
         </div>
+
+        {massToDelete && (
+          <ConfirmationModal
+            title="Confirmar exclusão"
+            description={`Deseja excluir a missa "${massToDelete.nome}"? Esta ação não pode ser desfeita.`}
+            confirmLabel="Excluir missa"
+            cancelLabel="Cancelar"
+            onConfirm={() => { void confirmDelete(); }}
+            onCancel={closeDeleteModal}
+          />
+        )}
       </div>
     </section>
   );

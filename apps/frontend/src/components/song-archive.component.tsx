@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../services/api';
 import type { LiturgicalMoment, Song } from '../types';
+import { ConfirmationModal } from './confirmation-modal.component';
+
+const SONGS_PER_PAGE = 10;
 
 const MOMENTS: LiturgicalMoment[] = [
   'ENTRADA',
@@ -44,12 +47,40 @@ function parseLyrics(text: string): string[] {
     .filter(Boolean);
 }
 
+function normalizeText(value: string) {
+  return value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
 export function SongArchive() {
   const [songs, setSongs] = useState<Song[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
   const [editingSong, setEditingSong] = useState<Song | null>(null);
+  const [songToDelete, setSongToDelete] = useState<Song | null>(null);
   const [formData, setFormData] = useState<SongEditorState>(EMPTY_EDITOR);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const selectedSongId = editingSong?._id ?? null;
+  const normalizedSearchTerm = normalizeText(searchTerm.trim());
+
+  const filteredSongs = useMemo(() => {
+    if (!normalizedSearchTerm) {
+      return songs;
+    }
+
+    return songs.filter(song => {
+      const searchable = [song.titulo, song.tom, song.momentoLiturgico].filter(Boolean).join(' ');
+      return normalizeText(searchable).includes(normalizedSearchTerm);
+    });
+  }, [normalizedSearchTerm, songs]);
+
+  const totalSongPages = Math.max(1, Math.ceil(filteredSongs.length / SONGS_PER_PAGE));
+  const currentSongPage = Math.min(currentPage, totalSongPages);
+  const pagedSongs = filteredSongs.slice((currentSongPage - 1) * SONGS_PER_PAGE, currentSongPage * SONGS_PER_PAGE);
 
   const title = useMemo(() => (
     editingSong ? 'Atualizar música selecionada' : 'Cadastrar nova música'
@@ -97,6 +128,31 @@ export function SongArchive() {
     setFormData(EMPTY_EDITOR);
   };
 
+  const closeDeleteModal = () => {
+    setSongToDelete(null);
+  };
+
+  const confirmDelete = async () => {
+    if (!songToDelete) {
+      return;
+    }
+
+    try {
+      await api.delete(`/songs/${songToDelete._id}`);
+      setLoading(true);
+      await loadSongs();
+      if (editingSong?._id === songToDelete._id) {
+        cancelEdit();
+      }
+      setMessage('Música excluída com sucesso.');
+    } catch (error) {
+      console.error('[frontend][song-archive] delete error', error);
+      setMessage('Erro ao excluir música.');
+    } finally {
+      closeDeleteModal();
+    }
+  };
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
@@ -126,21 +182,10 @@ export function SongArchive() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('Deseja excluir esta música?')) {
-      return;
-    }
+    const song = songs.find(item => item._id === id);
 
-    try {
-      await api.delete(`/songs/${id}`);
-      setLoading(true);
-      await loadSongs();
-      if (editingSong?._id === id) {
-        cancelEdit();
-      }
-      setMessage('Música excluída com sucesso.');
-    } catch (error) {
-      console.error('[frontend][song-archive] delete error', error);
-      setMessage('Erro ao excluir música.');
+    if (song) {
+      setSongToDelete(song);
     }
   };
 
@@ -218,15 +263,34 @@ export function SongArchive() {
           </form>
 
           <div className="archive-list">
-            <h3>Músicas cadastradas</h3>
+            <div className="archive-list-header">
+              <h3>Músicas cadastradas</h3>
+              <label className="archive-search">
+                <span>Buscar música</span>
+                <input
+                  type="search"
+                  value={searchTerm}
+                  onChange={event => {
+                    setSearchTerm(event.target.value);
+                    setCurrentPage(1);
+                  }}
+                  placeholder="Título, tom ou momento litúrgico"
+                />
+              </label>
+            </div>
             {loading ? (
               <p>Carregando músicas...</p>
             ) : songs.length === 0 ? (
               <p>Nenhuma música cadastrada ainda.</p>
+            ) : filteredSongs.length === 0 ? (
+              <p>Música não encontrada.</p>
             ) : (
-              songs.map(song => (
-                <article key={song._id} className="archive-item">
-                  <div>
+              pagedSongs.map(song => (
+                <article
+                  key={song._id}
+                  className={`archive-item${selectedSongId === song._id ? ' archive-item--selected' : ''}`}
+                >
+                  <div className="archive-item-content">
                     <strong>{song.titulo}</strong>
                     <p>{song.tom} · {song.momentoLiturgico}</p>
                   </div>
@@ -241,8 +305,43 @@ export function SongArchive() {
                 </article>
               ))
             )}
+
+            {filteredSongs.length > 0 && (
+              <div className="archive-pagination">
+                <button
+                  type="button"
+                  className="archive-secondary"
+                  onClick={() => setCurrentPage(page => Math.max(1, page - 1))}
+                  disabled={currentSongPage === 1}
+                >
+                  Anterior
+                </button>
+                <span>
+                  Página {currentSongPage} de {totalSongPages}
+                </span>
+                <button
+                  type="button"
+                  className="archive-secondary"
+                  onClick={() => setCurrentPage(page => Math.min(totalSongPages, page + 1))}
+                  disabled={currentSongPage === totalSongPages}
+                >
+                  Próxima
+                </button>
+              </div>
+            )}
           </div>
         </div>
+
+        {songToDelete && (
+          <ConfirmationModal
+            title="Confirmar exclusão"
+            description={`Deseja excluir a música "${songToDelete.titulo}"? Esta ação não pode ser desfeita.`}
+            confirmLabel="Excluir música"
+            cancelLabel="Cancelar"
+            onConfirm={() => { void confirmDelete(); }}
+            onCancel={closeDeleteModal}
+          />
+        )}
       </div>
     </section>
   );
