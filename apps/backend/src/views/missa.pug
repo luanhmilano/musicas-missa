@@ -1,0 +1,115 @@
+doctype html
+html(lang='pt-BR')
+  head
+    meta(charset='UTF-8')
+    meta(name='viewport', content='width=device-width, initial-scale=1.0')
+    title= `Missa - ${mass.nome}`
+    style.
+      :root {
+        color-scheme: light;
+        --bg: #f6f2ea;
+        --surface: #ffffff;
+        --text: #1f2937;
+        --muted: #6b7280;
+        --accent: #8c5f2a;
+        --border: #e5dccf;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: Arial, Helvetica, sans-serif;
+        background: linear-gradient(180deg, #faf7f2 0%, var(--bg) 100%);
+        color: var(--text);
+        line-height: 1.5;
+      }
+      .page {
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 32px 20px 48px;
+      }
+      .hero {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 28px;
+        box-shadow: 0 18px 42px rgba(31, 41, 55, 0.08);
+        margin-bottom: 24px;
+      }
+      .eyebrow {
+        margin: 0 0 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--accent);
+      }
+      h1, h2, h3, p { margin-top: 0; }
+      h1 {
+        margin-bottom: 10px;
+        font-size: clamp(28px, 4vw, 42px);
+      }
+      .meta {
+        color: var(--muted);
+        font-size: 15px;
+        display: flex;
+        gap: 16px;
+        flex-wrap: wrap;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 16px;
+      }
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        padding: 20px;
+      }
+      .card h2 {
+        font-size: 18px;
+        margin-bottom: 10px;
+        color: var(--accent);
+      }
+      .song-title {
+        font-weight: 700;
+        margin-bottom: 6px;
+      }
+      .song-tone {
+        color: var(--muted);
+        margin-bottom: 12px;
+      }
+      .lyrics {
+        white-space: pre-wrap;
+        margin: 0;
+        padding: 14px;
+        background: #fbf8f4;
+        border-radius: 14px;
+        border: 1px solid #efe5d7;
+      }
+      .empty {
+        color: var(--muted);
+        font-style: italic;
+        margin: 0;
+      }
+  body
+    main.page
+      header.hero
+        p.eyebrow Repertório da Missa
+        h1= mass.nome
+        .meta
+          span Data: #{formattedDate}
+          span ID: #{mass._id}
+      section.grid
+        each section in sections
+          article.card
+            h2= section.label.replace('_', ' ')
+            if section.song
+              p.song-title= section.song.titulo
+              p.song-tone Tom: #{section.song.tom || 'não informado'}
+              if section.song.letra && section.song.letra.length
+                pre.lyrics= section.song.letra.join('\n')
+              else
+                p.empty Sem letra cadastrada.
+            else
+              p.empty Música não selecionada.

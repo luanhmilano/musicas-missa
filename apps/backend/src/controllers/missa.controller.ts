@@ -1,4 +1,6 @@
 import type { Request, Response } from 'express';
+import path from 'path';
+import pug from 'pug';
 import Missa from '../models/missa.model.js';
 
 const REPERTOIRE_FIELDS = [
@@ -12,6 +14,58 @@ const REPERTOIRE_FIELDS = [
   'repertorio.comunhao',
   'repertorio.final'
 ].join(' ');
+
+const PUG_TEMPLATE_PATH = path.resolve(process.cwd(), 'src', 'views', 'missa.pug');
+
+type PopulatedSong = {
+  titulo: string;
+  tom?: string;
+  letra?: string[];
+};
+
+type PopulatedMissa = {
+  _id: string | { toString(): string };
+  nome: string;
+  data: Date;
+  repertorio: Record<string, PopulatedSong | null | undefined>;
+};
+
+const REPERTOIRE_LABELS: Record<string, string> = {
+  entrada: 'ENTRADA',
+  atoPenitencial: 'ATO_PENITENCIAL',
+  salmo: 'SALMO',
+  aclamacao: 'ACLAMACAO',
+  ofertorio: 'OFERTORIO',
+  santo: 'SANTO',
+  cordeiro: 'CORDEIRO',
+  comunhao: 'COMUNHAO',
+  final: 'FINAL'
+};
+
+function formatDate(date: Date): string {
+  return new Intl.DateTimeFormat('pt-BR', {
+    dateStyle: 'long',
+    timeZone: 'UTC'
+  }).format(date);
+}
+
+function buildMassViewModel(mass: PopulatedMissa) {
+  const sections = Object.entries(REPERTOIRE_LABELS).map(([key, label]) => ({
+    key,
+    label,
+    song: mass.repertorio[key] ?? null
+  }));
+
+  return {
+    mass,
+    formattedDate: formatDate(new Date(mass.data)),
+    sections
+  };
+}
+
+function renderMassHtml(mass: PopulatedMissa): string {
+  return pug.renderFile(PUG_TEMPLATE_PATH, buildMassViewModel(mass));
+}
 
 class MassController {
   async create(req: Request, res: Response): Promise<void> {
@@ -61,6 +115,27 @@ class MassController {
     } catch (error: any) {
       console.error('[backend][missas] getById error', error);
       res.status(500).json({ error: 'Erro ao buscar missa', details: error.message });
+    }
+  }
+
+  async getHtml(req: Request, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      console.debug('[backend][missas] getHtml', { id });
+
+      const mass = await Missa.findById(id).populate(REPERTOIRE_FIELDS);
+
+      if (!mass) {
+        console.debug('[backend][missas] getHtml not found', { id });
+        res.status(404).json({ error: 'Missa não encontrada' });
+        return;
+      }
+
+      const html = renderMassHtml(mass.toObject() as unknown as PopulatedMissa);
+      res.status(200).type('html').send(html);
+    } catch (error: any) {
+      console.error('[backend][missas] getHtml error', error);
+      res.status(500).json({ error: 'Erro ao gerar HTML da missa', details: error.message });
     }
   }
 
