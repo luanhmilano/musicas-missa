@@ -47,21 +47,64 @@ export function MassBuilder() {
       console.log('[frontend][mass-builder] saving mass', massData);
       const response = await api.post('/missas', massData);
       console.log('[frontend][mass-builder] mass saved', response.data);
-      alert('Missa salva com sucesso! ID: ' + response.data._id);
       return response.data._id;
     } catch (error) {
-      alert('Erro ao salvar missa');
       console.error('[frontend][mass-builder] save mass error', error);
+      alert('Erro ao salvar missa');
+      return null;
     }
+  };
+
+  const downloadPdf = async (massId: string) => {
+    const response = await api.get(`/missas/${massId}/pdf`, {
+      responseType: 'blob'
+    });
+
+    const blob = new Blob([response.data], { type: 'application/pdf' });
+    const downloadUrl = window.URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+
+    anchor.href = downloadUrl;
+    anchor.download = `missa-${massId}.pdf`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.URL.revokeObjectURL(downloadUrl);
+  };
+
+  const openHtmlPreview = (massId: string) => {
+    window.open(`${api.defaults.baseURL}/missas/${massId}/html`, '_blank', 'noopener,noreferrer');
   };
 
   const handleGenerateDocument = async () => {
     console.debug('[frontend][mass-builder] generate document requested');
+    const previewWindow = window.open('about:blank', '_blank');
+    const massId = await handleSaveMass();
+    if (!massId) {
+      previewWindow?.close();
+      return;
+    }
+
+    if (previewWindow) {
+      previewWindow.location.href = `${api.defaults.baseURL}/missas/${massId}/html`;
+    } else {
+      openHtmlPreview(massId);
+    }
+
+    try {
+      await downloadPdf(massId);
+      alert('Missa salva, HTML aberto para conferência e PDF baixado com sucesso!');
+    } catch (error) {
+      console.error('[frontend][mass-builder] generate pdf error', error);
+      alert('Missa salva, mas houve erro ao baixar o PDF. Veja o HTML aberto para validar a montagem.');
+    }
+  };
+
+  const handleSaveOnly = async () => {
     const massId = await handleSaveMass();
     if (!massId) return;
 
-    console.log(`Disparando geração de PDF para a missa: ${massId}`);
-    alert(`Preparado para chamar: GET /masses/${massId}/pdf`);
+    alert('Missa salva com sucesso! ID: ' + massId);
   };
 
   return (
@@ -113,7 +156,7 @@ export function MassBuilder() {
       </div>
 
       <div className={styles.actions}>
-        <button onClick={handleSaveMass} className={styles.saveBtn}>
+        <button onClick={handleSaveOnly} className={styles.saveBtn}>
           Apenas Salvar
         </button>
         <button onClick={handleGenerateDocument} className={styles.generateBtn}>

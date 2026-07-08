@@ -42,23 +42,16 @@ app.get('/', (_req: Request, res: Response) => {
 });
 
 async function startServer() {
-  let databaseReady = false;
+  app.listen(PORT, () => {
+    console.log(`Backend Express/TS rodando na porta ${PORT}`);
+  });
 
   try {
     await connectToDatabase();
-    databaseReady = true;
   } catch (error) {
     console.error('Falha ao conectar no MongoDB:', error);
+    console.warn(`Backend Express/TS rodando na porta ${PORT} sem conexão ativa com o MongoDB`);
   }
-
-  app.listen(PORT, () => {
-    if (databaseReady) {
-      console.log(`Backend Express/TS rodando na porta ${PORT}`);
-      return;
-    }
-
-    console.log(`Backend Express/TS rodando na porta ${PORT} sem conexão ativa com o MongoDB`);
-  });
 }
 
 startServer();

@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import path from 'path';
 import pug from 'pug';
+import puppeteer from 'puppeteer';
 import Missa from '../models/missa.model.js';
 
 const REPERTOIRE_FIELDS = [
@@ -65,6 +66,45 @@ function buildMassViewModel(mass: PopulatedMissa) {
 
 function renderMassHtml(mass: PopulatedMissa): string {
   return pug.renderFile(PUG_TEMPLATE_PATH, buildMassViewModel(mass));
+}
+
+async function renderMassPdfBuffer(mass: PopulatedMissa): Promise<Buffer> {
+  const browser = await puppeteer.launch({
+    headless: true,
+    args: ['--no-sandbox', '--disable-setuid-sandbox']
+  });
+
+  try {
+    const page = await browser.newPage();
+    await page.setContent(renderMassHtml(mass), { waitUntil: 'load' });
+
+    const pdf = await page.pdf({
+      format: 'A4',
+      printBackground: true,
+      preferCSSPageSize: true,
+      margin: {
+        top: '12mm',
+        right: '12mm',
+        bottom: '12mm',
+        left: '12mm'
+      }
+    });
+
+    return Buffer.from(pdf);
+  } finally {
+    await browser.close();
+  }
+}
+
+function getPdfFileName(mass: PopulatedMissa): string {
+  const safeName = mass.nome
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9._-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .toLowerCase();
+
+  return `${safeName || 'missa'}.pdf`;
 }
 
 class MassController {
@@ -136,6 +176,34 @@ class MassController {
     } catch (error: any) {
       console.error('[backend][missas] getHtml error', error);
       res.status(500).json({ error: 'Erro ao gerar HTML da missa', details: error.message });
+    }
+  }
+
+  async getPdf(req: Request, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      console.debug('[backend][missas] getPdf', { id });
+
+      const mass = await Missa.findById(id).populate(REPERTOIRE_FIELDS);
+
+      if (!mass) {
+        console.debug('[backend][missas] getPdf not found', { id });
+        res.status(404).json({ error: 'Missa não encontrada' });
+        return;
+      }
+
+      const populatedMass = mass.toObject() as unknown as PopulatedMissa;
+      const pdfBuffer = await renderMassPdfBuffer(populatedMass);
+      const fileName = getPdfFileName(populatedMass);
+
+      res
+        .status(200)
+        .setHeader('Content-Type', 'application/pdf')
+        .setHeader('Content-Disposition', `attachment; filename="${fileName}"`)
+        .send(pdfBuffer);
+    } catch (error: any) {
+      console.error('[backend][missas] getPdf error', error);
+      res.status(500).json({ error: 'Erro ao gerar PDF da missa', details: error.message });
     }
   }
 

@@ -8,8 +8,24 @@ export enum LiturgicalMoment {
   OFERTORIO = 'OFERTORIO',
   SANTO = 'SANTO',
   CORDEIRO = 'CORDEIRO',
-  COMUNHAO = 'COMUNHÃO',
+  COMUNHAO = 'COMUNHAO',
   FINAL = 'FINAL'
+}
+
+export function normalizeLiturgicalMoment(value: unknown): LiturgicalMoment | undefined {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  const normalizedValue = value
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase();
+
+  const normalizedMoment = Object.values(LiturgicalMoment).find(moment => moment === normalizedValue);
+
+  return normalizedMoment as LiturgicalMoment | undefined;
 }
 
 export interface ISong extends Document {

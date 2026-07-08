@@ -1,12 +1,17 @@
 import type { Request, Response } from 'express';
 import Song from '../models/song.model.js';
-import { LiturgicalMoment } from '../models/song.model.js';
+import { normalizeLiturgicalMoment } from '../models/song.model.js';
 
 class SongController {
   async create(req: Request, res: Response): Promise<void> {
     try {
       console.debug('[backend][songs] create payload', req.body);
-      const newSong = await Song.create(req.body);
+      const payload = {
+        ...req.body,
+        momentoLiturgico: normalizeLiturgicalMoment(req.body.momentoLiturgico)
+      };
+
+      const newSong = await Song.create(payload);
       console.debug('[backend][songs] created', newSong);
       res.status(201).json(newSong);
     } catch (error: any) {
@@ -18,9 +23,7 @@ class SongController {
   async getAll(req: Request, res: Response): Promise<void> {
     try {
       const { momento } = req.query;
-      const momentoLiturgico = typeof momento === 'string' && Object.values(LiturgicalMoment).includes(momento as LiturgicalMoment)
-        ? (momento as LiturgicalMoment)
-        : undefined;
+      const momentoLiturgico = normalizeLiturgicalMoment(momento);
 
       const filter = momentoLiturgico ? { momentoLiturgico } : {};
       console.debug('[backend][songs] getAll filter', { momento, filter });
@@ -58,7 +61,12 @@ class SongController {
     try {
       const { id } = req.params;
       console.debug('[backend][songs] update payload', { id, body: req.body });
-      const updatedSong = await Song.findByIdAndUpdate(id, req.body, { 
+      const payload = {
+        ...req.body,
+        momentoLiturgico: normalizeLiturgicalMoment(req.body.momentoLiturgico)
+      };
+
+      const updatedSong = await Song.findByIdAndUpdate(id, payload, { 
         new: true,
         runValidators: true
       });
