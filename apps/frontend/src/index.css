@@ -1,18 +1,18 @@
 :root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
+  --text: #5f6676;
+  --text-h: #10182a;
+  --bg: #f3efe7;
+  --border: #dbd3c7;
+  --code-bg: #e9e1d6;
+  --accent: #0f766e;
+  --accent-bg: rgba(15, 118, 110, 0.12);
+  --accent-border: rgba(15, 118, 110, 0.35);
+  --social-bg: rgba(233, 225, 214, 0.5);
   --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+    rgba(18, 28, 45, 0.12) 0 10px 25px -12px, rgba(18, 28, 45, 0.08) 0 4px 10px -4px;
 
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
+  --sans: 'Trebuchet MS', 'Segoe UI', sans-serif;
+  --heading: 'Georgia', 'Times New Roman', serif;
   --mono: ui-monospace, Consolas, monospace;
 
   font: 18px/145% var(--sans);
@@ -32,17 +32,17 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
+    --text: #b4bac6;
+    --text-h: #f8f7f2;
+    --bg: #11151d;
+    --border: #2b3240;
+    --code-bg: #1a202c;
+    --accent: #14b8a6;
+    --accent-bg: rgba(20, 184, 166, 0.16);
+    --accent-border: rgba(20, 184, 166, 0.4);
+    --social-bg: rgba(32, 38, 48, 0.5);
     --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
+      rgba(0, 0, 0, 0.45) 0 10px 24px -10px, rgba(0, 0, 0, 0.25) 0 4px 10px -4px;
   }
 
   #social .button-icon {
@@ -51,19 +51,34 @@
 }
 
 #root {
-  width: 1126px;
+  width: 1200px;
   max-width: 100%;
   margin: 0 auto;
-  text-align: center;
   border-inline: 1px solid var(--border);
   min-height: 100svh;
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
+  background:
+    radial-gradient(circle at top left, rgba(15, 118, 110, 0.12), transparent 34%),
+    radial-gradient(circle at top right, rgba(186, 230, 253, 0.12), transparent 30%),
+    var(--bg);
 }
 
 body {
   margin: 0;
+  background: var(--bg);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
 }
 
 h1,
@@ -74,21 +89,20 @@ h2 {
 }
 
 h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
+  font-size: clamp(2.5rem, 4vw, 4.5rem);
+  letter-spacing: -0.04em;
+  margin: 0;
   @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
+    font-size: clamp(2.2rem, 7vw, 3rem);
   }
 }
 h2 {
-  font-size: 24px;
+  font-size: clamp(1.35rem, 2vw, 1.8rem);
   line-height: 118%;
-  letter-spacing: -0.24px;
+  letter-spacing: -0.02em;
   margin: 0 0 8px;
   @media (max-width: 1024px) {
-    font-size: 20px;
+    font-size: 1.2rem;
   }
 }
 p {
@@ -108,4 +122,8 @@ code {
   line-height: 135%;
   padding: 4px 8px;
   background: var(--code-bg);
+}
+
+main {
+  padding: 0 1.25rem 2rem;
 }

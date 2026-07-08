@@ -109,7 +109,7 @@ export function MassBuilder() {
 
   return (
     <div className={styles.container}>
-      <h2>Montar Repertório da Missa</h2>
+      <h2>Montar missa</h2>
       
       <div className={styles.headerInfo}>
         <div className={styles.formGroup}>
@@ -156,11 +156,11 @@ export function MassBuilder() {
       </div>
 
       <div className={styles.actions}>
-        <button onClick={handleSaveOnly} className={styles.saveBtn}>
-          Apenas Salvar
+          <button onClick={handleSaveOnly} className={styles.saveBtn}>
+          Salvar missa
         </button>
         <button onClick={handleGenerateDocument} className={styles.generateBtn}>
-          Salvar e Gerar Documento (PDF)
+          Salvar e gerar PDF
         </button>
       </div>
     </div>

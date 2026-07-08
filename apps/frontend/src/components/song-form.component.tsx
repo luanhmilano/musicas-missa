@@ -47,7 +47,7 @@ export function SongForm() {
 
   return (
     <div className={styles.container}>
-      <h2>Cadastrar Nova Música</h2>
+      <h2>Cadastrar Músicas</h2>
       <form onSubmit={handleSubmit}>
         <div className={styles.formGroup}>
           <label>Título da Música</label>
@@ -90,7 +90,7 @@ export function SongForm() {
 
         {status && <p className={styles.successMessage}>{status}</p>}
 
-        <button type="submit" className={styles.submitBtn}>Salvar Música no Acervo</button>
+        <button type="submit" className={styles.submitBtn}>Salvar nova música</button>
       </form>
     </div>
   );
